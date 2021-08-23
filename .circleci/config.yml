@@ -63,7 +63,7 @@ commands:
     steps:
       - run:
           name: Run Ansible Playbook
-          command: ansible-playbook -i aws_ec2.yml -vv runner.yml -u ansible -e "RESOURCE_CLASS_CREATION=false NAMESPACE=crowley-namespace ORG_NAME=james-crowley RESOURCE_CLASS=runner-demo API_TOKEN=$API_TOKEN target_hosts=$(cat /tmp/terraform/output)"
+          command: ansible-playbook -i aws_ec2.yml -vv runner.yml -u ansible -e "RESOURCE_CLASS_CREATION=false NAMESPACE=crowley-namespace ORG_NAME=james-crowley RESOURCE_CLASS=runner-demo API_TOKEN=$API_TOKEN target_hosts=$(cat output)"
 
 
 jobs:
@@ -82,23 +82,21 @@ jobs:
       - terraform/apply:
           path: terraform/
           var_file: demo.tfvars
+          persist-workspace: true
       - run:
-          name: Create a Temp Terraform Directory
-          command: mkdir -p /tmp/terraform/
-      - run:
-          name: Write out Public IP value to /tmp/terraform/output
-          command: echo "$(terraform output public_ip)" > /tmp/terraform/output
+          name: Write out Public IP value to output
+          command: echo "$(terraform output public_ip)" > output
       - persist_to_workspace:
-          root: /tmp
+          root: .
           paths:
-            - terraform/*
+            - .
 
   install-runner-via-ansible:
     executor: ansible
     steps:
       - checkout
       - attach_workspace:
-          at: /tmp
+          at: .
       - add_ssh_keys:
           fingerprints:
             - "dd:8f:af:18:32:a1:c9:b7:86:ca:73:a1:1e:77:db:87"
@@ -106,7 +104,16 @@ jobs:
           version: "2.9.24"
       - install-additional-packages
       - install-runner
-      
+
+  destroy-runner-via-terraform:
+    executor: terraform/default
+    steps:
+      - checkout
+      - terraform/destroy:
+          path: terraform/
+          var_file: demo.tfvars
+          attach-workspace: true
+
 
 executors:
   ansible:
@@ -127,3 +134,7 @@ workflows:
           name: "Run job on Runner"
           requires: 
             - "Install and Configure Runner" 
+      - destroy-runner-via-terraform:
+          name: "Terminate Server Instance"
+          requires:
+            - "Run job on Runner"
