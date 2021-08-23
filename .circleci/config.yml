@@ -63,7 +63,7 @@ commands:
     steps:
       - run:
           name: Run Ansible Playbook
-          command: ansible-playbook -i aws_ec2.yml -vv runner.yml -u ansible -e "RESOURCE_CLASS_CREATION=false NAMESPACE=crowley-namespace ORG_NAME=james-crowley RESOURCE_CLASS=runner-demo API_TOKEN=$API_TOKEN target_hosts=$(cat output)"
+          command: ansible-playbook -i aws_ec2.yml -vv runner.yml -u ansible -e "RESOURCE_CLASS_CREATION=false NAMESPACE=crowley-namespace ORG_NAME=james-crowley RESOURCE_CLASS=runner-demo API_TOKEN=$API_TOKEN target_hosts=$(cat output.txt)"
 
 
 jobs:
@@ -82,10 +82,9 @@ jobs:
       - terraform/apply:
           path: terraform/
           var_file: demo.tfvars
-          persist-workspace: true
       - run:
-          name: Write out Public IP value to output
-          command: echo "$(terraform output public_ip)" > output
+          name: Write out Public IP value to output.txt
+          command: echo "$(terraform output public_ip)" > output.txt
       - persist_to_workspace:
           root: .
           paths:
@@ -109,10 +108,11 @@ jobs:
     executor: terraform/default
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - terraform/destroy:
           path: terraform/
           var_file: demo.tfvars
-          attach-workspace: true
 
 
 executors:
